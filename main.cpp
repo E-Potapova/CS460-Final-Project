@@ -174,7 +174,7 @@ void drawPlane(int yHeight) {
 	Vector planeLL(-100, yHeight, -100);
 	int boxWidth = 5;
 	int numBoxesInWidth = 40;
-	glColor3f(0.709f, 0.404f, 0.522f); // dark pink
+	glColor3f(0.02f, 0.8f, 0.042f); // dark pink
 	for (int r = 0; r < numBoxesInWidth; r++) {
 		for (int c = 0; c < numBoxesInWidth; c++) {
 			glBegin(GL_LINE_STRIP);
@@ -213,7 +213,7 @@ void display() {
     glLoadIdentity();
     gluLookAt(viewPoint.x, viewPoint.y, viewPoint.z, (viewPoint.x + n.x), (viewPoint.y + n.y), (viewPoint.z + n.z), v.x, v.y, v.z);
 	drawPlane(-10);
-	glColor3f(0.709f, 0.404f, 0.522f); // dark pink
+	glColor3f(0.01, 0.3, 0.032); // dark pink
     glutWireTeapot(10);
 
     glutSwapBuffers();
