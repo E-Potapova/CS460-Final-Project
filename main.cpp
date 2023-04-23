@@ -1,9 +1,4 @@
-#ifdef __APPLE__
-#define GL_SILENCE_DEPRECATION
-#include <GLUT/glut.h>
-#else
 #include <GL/glut.h>
-#endif
 #include <stdlib.h>
 #include <cmath>
 using namespace std;
@@ -37,7 +32,7 @@ void display(); // declaration, definition below
 
 void roll(double angle) { // Q,E
 	// rotation about n axis
-	angle = angle * (M_PI / 180); // convert to radians
+	angle = angle * (3.14159 / 180); // convert to radians
 	double cosine = cos(angle);
 	double sine = sin(angle);
 	Vector oldU(u.x, u.y, u.z);
@@ -53,7 +48,7 @@ void roll(double angle) { // Q,E
 
 void pitch(double angle) { // W,S
 	// rotation about u axis
-	angle = angle * (M_PI / 180); // convert to radians
+	angle = angle * (3.14159 / 180); // convert to radians
 	double cosine = cos(angle);
 	double sine = sin(angle);
 	Vector oldV(v.x, v.y, v.z);
@@ -69,7 +64,7 @@ void pitch(double angle) { // W,S
 
 void yaw(double angle) { // A,D
 	// rotation about v axis
-	angle = angle * (M_PI / 180); // convert to radians
+	angle = angle * (3.14159 / 180); // convert to radians
 	double cosine = cos(angle);
 	double sine = sin(angle);
 	Vector oldU(u.x, u.y, u.z);
@@ -114,7 +109,7 @@ void drawModel() {
 		// s2,s3
 		glPushMatrix();
 			glTranslatef(0.0, 0.0, -10.0);
-			glColor3f(0.074f, 0.556f, 0.556f); // lighter dark blue-green
+			glColor3f(0.9f, 0.2f, 0.2f); // lighter dark blue-green
 			gluCylinder(gluNewQuadric(), 0.8, 0.8, 20, 20, 20);
 		glPopMatrix();
 		// spin s5, b5 about b3
