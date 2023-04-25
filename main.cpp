@@ -1,5 +1,11 @@
+#ifdef __APPLE__
+#define GL_SILENCE_DEPRECATION
+#include <GLUT/glut.h>
+#else
 #include <GL/glut.h>
-#include <stdlib.h>
+#endif
+#include <iostream>
+#include <vector>
 #include <cmath>
 using namespace std;
 
@@ -8,301 +14,162 @@ class Vector { // essentially a struct but with constructors
 		double x;
 		double y;
 		double z;
+		double w;
 		Vector() 
-			: x(0), y(0), z(0) {}
+			: x(0), y(0), z(0), w(0) {}
 		Vector(double x, double y, double z)
-			: x(x), y(y), z(z) {}
+			: x(x), y(y), z(z), w(0) {}
+		Vector(double x, double y, double z, double w)
+			: x(x), y(y), z(z), w(w) {}
 };
 
-// initializing globals
-int mainWindowID;
-int width = 1300;
-int height = 800;
-// model rotation vars
-double aboutB2 = 0.0; // whole model, except s1 and b2, spins around s1 (y-axis)
-double aboutB1 = 0.0; // s4, b4 spin around b1
-double aboutB3 = 0.0; // s5, b5 spin around b3
-// flight sim vars
-Vector viewPoint(0.0, 0.0, 40.0);
-Vector u(1.0, 0.0, 0.0); // x-view
-Vector v(0.0, 1.0, 0.0); // y-view; up vector
-Vector n(0.0, 0.0, -1.0); //z-view
+// window parameters
+int MAIN_WINDOW_ID;
+const unsigned int WIN_WIDTH = 1300;
+const unsigned int WIN_HEIGHT = 800;
+const Vector WIN_POSITION(0,0,0);
 
-void display(); // declaration, definition below
+// Perlin noise vars
+// a randomized list of number 0-255 (inclusive); used in original implementation
+vector<unsigned char> PERMUTATIONS = { 151,160,137,91,90,15,
+	131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+	190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+	88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
+	77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+	102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208, 89,18,169,200,196,
+	135,130,116,188,159,86,164,100,109,198,173,186, 3,64,52,217,226,250,124,123,
+	5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+	223,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167, 43,172,9,
+	129,22,39,253, 19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+	251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,
+	49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
+	138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180
+};
 
-void roll(double angle) { // Q,E
-	// rotation about n axis
-	angle = angle * (3.14159 / 180); // convert to radians
-	double cosine = cos(angle);
-	double sine = sin(angle);
-	Vector oldU(u.x, u.y, u.z);
-	Vector oldV(v.x, v.y, v.z);
-	u.x = (cosine * oldU.x) - (sine * oldV.x);
-	u.y = (cosine * oldU.y) - (sine * oldV.y);
-	u.z = (cosine * oldU.z) - (sine * oldV.z);
-	v.x = (sine * oldU.x) + (cosine * oldV.x);
-	v.y = (sine * oldU.y) + (cosine * oldV.y);
-	v.z = (sine * oldU.z) + (cosine * oldV.z);
-	display();
+// viewing vars
+double ROTATION_ANGLE = 0;
+
+// 3 helper functions for Perlin noise generation
+// the "the new and improved, C(2) continuous interpolant"
+float fade(float t) {
+	return (t*t*t*(t* (t*6 - 15) + 10));
 }
-
-void pitch(double angle) { // W,S
-	// rotation about u axis
-	angle = angle * (3.14159 / 180); // convert to radians
-	double cosine = cos(angle);
-	double sine = sin(angle);
-	Vector oldV(v.x, v.y, v.z);
-	Vector oldN(n.x, n.y, n.z);
-	v.x = (cosine * oldV.x) - (sine * n.x);
-	v.y = (cosine * oldV.y) - (sine * n.y);
-	v.z = (cosine * oldV.z) - (sine * n.z);
-	n.x = (sine * oldV.x) + (cosine * oldN.x);
-	n.y = (sine * oldV.y) + (cosine * oldN.y);
-	n.z = (sine * oldV.z) + (cosine * oldN.z);
-	display();
+// more interpolation
+float lerp(float t, float a, float b) {
+	return ((a) + (t)*((b)-(a)));
 }
-
-void yaw(double angle) { // A,D
-	// rotation about v axis
-	angle = angle * (3.14159 / 180); // convert to radians
-	double cosine = cos(angle);
-	double sine = sin(angle);
-	Vector oldU(u.x, u.y, u.z);
-	Vector oldN(n.x, n.y, n.z);
-	u.x = (sine * oldN.x) + (cosine * oldU.x);
-	u.y = (sine * oldN.y) + (cosine * oldU.y);
-	u.z = (sine * oldN.z) + (cosine * oldU.z);
-	n.x = (cosine * oldN.x) - (sine * oldU.x);
-	n.y = (cosine * oldN.y) - (sine * oldU.y);
-	n.z = (cosine * oldN.z) - (sine * oldU.z);
-	display();
+// "to compute gradients-dot-residualvectors"; generates gradients
+float grad2(int hash, float x, float y) {
+    int h = hash & 7; // Convert low 3 bits of hash code
+    float u = h<4 ? x : y;  // into 8 simple gradient directions,
+    float v = h<4 ? y : x;  // and compute the dot product with (x,y).
+    return ((h&1)? -u : u) + ((h&2)? -2.0*v : 2.0*v);
 }
+// original 2D Perlin noise implementation
+float noise2D(float x, float y) {
+	int x0_int, y0_int, x1_int, y1_int;
+	float x0_frac, y0_frac, x1_frac, y1_frac;
+	float s, t, nx0, nx1, n0, n1;
 
-void slideAlongU(int distance) { // H,K
-	// move sideways
-	viewPoint.x += u.x * distance;
-	viewPoint.y += u.y * distance;
-	viewPoint.z += u.z * distance;
-	display();
-}
+	x0_int = floor(x); // integer part of x
+	y0_int = floor(y); // integer part of y
+	x0_frac = x - x0_int; // fractional part of x
+	y0_frac = y - y0_int; // fractional part of y
+	x1_frac = x0_frac - 1.0f;
+	y1_frac = y0_frac - 1.0f;
+	x1_int = (x0_int + 1) & 255;  // wrap to 0..255
+	y1_int = (y0_int + 1) & 255;  // same as doing % 255 ?? not sure
+	x0_int = x0_int & 255;
+	y0_int = y0_int & 255;
 
-void slideAlongV(int distance) { // Y,I
-	// move up, down
-	viewPoint.x += v.x * distance;
-	viewPoint.y += v.y * distance;
-	viewPoint.z += v.z * distance;
-	display();
-}
+	t = fade(y0_frac);
+	s = fade(x0_frac);
 
-void slideAlongN(int distance) { // U,J
-	// move forward, backward
-	viewPoint.x += n.x * distance;
-	viewPoint.y += n.y * distance;
-	viewPoint.z += n.z * distance;
-	display();
-}
+	nx0 = grad2(PERMUTATIONS[x0_int + PERMUTATIONS[y0_int]], x0_frac, y0_frac);
+	nx1 = grad2(PERMUTATIONS[x0_int + PERMUTATIONS[y1_int]], x0_frac, y1_frac);
+	n0 = lerp(t, nx0, nx1);
 
-void drawModel() {
-	// spin whole model
-	glPushMatrix();
-		glRotatef(aboutB2, 0.0, 1.0, 0.0);
-		// s2,s3
-		glPushMatrix();
-			glTranslatef(0.0, 0.0, -10.0);
-			glColor3f(0.9f, 0.2f, 0.2f); // lighter dark blue-green
-			gluCylinder(gluNewQuadric(), 0.8, 0.8, 20, 20, 20);
-		glPopMatrix();
-		// spin s5, b5 about b3
-		glPushMatrix();
-			glRotatef(aboutB3, 0.0, 0.0, 1.0);
-			// s5
-			glPushMatrix();
-				glTranslatef(0.0, 0.0, -10.0);
-				glRotatef(90.0, 1.0, 0.0, 0.0);
-				glColor3f(0.031f, 0.423f, 0.478f); // dark blue-green
-				gluCylinder(gluNewQuadric(), 0.2, 0.8, 10, 20, 20);
-			glPopMatrix();
-			// b5
-			glPushMatrix();
-				glTranslatef(0.0, -10.0, -10.0);
-				glColor3f(0.701f, 0.380f, 0.807f); // lighter purple
-				gluSphere(gluNewQuadric(), 2.3, 20, 20);
-			glPopMatrix();
-		glPopMatrix();
-		// b3
-		glPushMatrix();
-			glTranslatef(0.0, 0.0, -10.0);
-			glColor3f(0.572f, 0.270f, 0.619f); // more purple
-			gluSphere(gluNewQuadric(), 1.5, 20, 20);
-		glPopMatrix();
-		// spin s4, b4 about b1
-		glPushMatrix();
-			glRotatef(aboutB1, 0.0, 0.0, 1.0);
-			// s4
-			glPushMatrix();
-				glTranslatef(0.0, 0.0, 10.0);
-				glRotatef(90.0, 1.0, 0.0, 0.0);
-				glColor3f(0.031f, 0.423f, 0.478f); // dark blue-green
-				gluCylinder(gluNewQuadric(), 0.2, 0.8, 10, 20, 20);
-			glPopMatrix();
-			// b4
-			glPushMatrix();
-				glTranslatef(0.0, -10.0, 10.0);
-				glColor3f(0.8f, 0.309f, 0.537f); // lighter pink
-				gluSphere(gluNewQuadric(), 2.3, 20, 20);
-			glPopMatrix();
-		glPopMatrix();
-		// b1
-		glPushMatrix();
-			glTranslatef(0.0, 0.0, 10.0);
-			glColor3f(0.666f, 0.298f, 0.470f); // more pink
-			gluSphere(gluNewQuadric(), 1.5, 20, 20);
-		glPopMatrix();
-	glPopMatrix();
-	// s1
-	glPushMatrix();
-		glRotatef(90.0, 1.0, 0.0, 0.0);
-		glColor3f(0.031f, 0.423f, 0.478f); // dark blue-green
-		gluCylinder(gluNewQuadric(), 0.8, 0.8, 20, 20, 20);
-	glPopMatrix();
-	// b2
-	glColor3f(0.576f, 0.282f, 0.505f); // pinkish-purple
-	gluSphere(gluNewQuadric(), 1.5, 20, 20);
-}
+	nx0 = grad2(PERMUTATIONS[x1_int + PERMUTATIONS[y0_int]], x1_frac, y0_frac);
+	nx1 = grad2(PERMUTATIONS[x1_int + PERMUTATIONS[y1_int]], x1_frac, y1_frac);
+	n1 = lerp(t, nx0, nx1);
 
-void drawPlane(int yHeight) {
-	Vector planeLL(-100, yHeight, -100);
-	int boxWidth = 5;
-	int numBoxesInWidth = 40;
-	glColor3f(0.02f, 0.8f, 0.042f); // dark pink
-	for (int r = 0; r < numBoxesInWidth; r++) {
-		for (int c = 0; c < numBoxesInWidth; c++) {
-			glBegin(GL_LINE_STRIP);
-				glVertex3f(planeLL.x+(c*boxWidth), planeLL.y, planeLL.z+(r*boxWidth));
-				glVertex3f(planeLL.x+(c*boxWidth)+boxWidth, planeLL.y, planeLL.z+(r*boxWidth));
-				glVertex3f(planeLL.x+(c*boxWidth)+boxWidth, planeLL.y, planeLL.z+(r*boxWidth)+boxWidth);
-				glVertex3f(planeLL.x+(c*boxWidth), planeLL.y, planeLL.z+(r*boxWidth)+boxWidth);
-				glVertex3f(planeLL.x+(c*boxWidth), planeLL.y, planeLL.z+(r*boxWidth));
-			glEnd();
-		}
-	}
+	return (0.507f * (lerp(s, n0, n1))) * 0.5 + 0.5; // '* 0.5 + 0.5' I added myself
 }
 
 void display() {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	// upper left viewport
-    glViewport(0, height/2, width/2, height/2);
-    glLoadIdentity();
-    gluLookAt(40.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-	drawPlane(-20);
-    drawModel();
-	// upper right viewport
-    glViewport(width/2, height/2, width/2, height/2);
-    glLoadIdentity();
-    gluLookAt(0.0, 0.0, 40.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-	drawPlane(-20);
-    drawModel();
-	// lower left viewport
-    glViewport(0, 0, width/2, height/2);
-    glLoadIdentity();
-    gluLookAt(0.0, 40.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0);
-	drawPlane(-20);
-    drawModel();
-	// lower right viewport
-    glViewport(width/2, 0, width/2, height/2);
-    glLoadIdentity();
-    gluLookAt(viewPoint.x, viewPoint.y, viewPoint.z, (viewPoint.x + n.x), (viewPoint.y + n.y), (viewPoint.z + n.z), v.x, v.y, v.z);
-	drawPlane(-10);
+	// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // for 3D map stuff
+	glClear(GL_COLOR_BUFFER_BIT);
+	
+	float u = 0.0;
+	float v = 0.0;
+	float min = 9999;
+	float max = -99999;
+	for (int x = 100; x < 300; x++){
+		for (int y = 100; y < 300; y++) {
+			float n = noise2D(u,v);
+			glColor3f(n, n, n);
+			glBegin(GL_POINTS);
+				glVertex2d(x, y);
+   			glEnd();
+			if (n < min) min = n;
+			else if (n > max) max = n;
+			v += 0.05;
+		}
+		u += 0.05;
+		v = 0.0;
+	}
+
 	glColor3f(0.01, 0.3, 0.032); // dark pink
-    glutWireTeapot(10);
+	glLineWidth(3);
+    glBegin(GL_LINES);
+		glVertex2f(500, 400);
+		glVertex2f(600, 200);
+	glEnd();
+
+	cout << "min: " << min << endl;
+	cout << "max: " << max << endl;
 
     glutSwapBuffers();
 }
 
 void parseKeys(unsigned char key, int x, int y) {
 	if (key == 27) {
-			glutDestroyWindow(mainWindowID);
+			glutDestroyWindow(MAIN_WINDOW_ID);
 			exit(0);
 	}
 	else if (key == '.') { // > key, step forward for model rotation
-		aboutB2 += 10;
-		if (aboutB2 >= 360) aboutB2 -= 360;
-		aboutB1 += 10;
-		if (aboutB1 >= 360) aboutB1 -= 360;
-		aboutB3 += -10;
-		if (aboutB3 >= 360) aboutB3 -= 360;
-		display();
+		ROTATION_ANGLE += 10;
 	}
 	else if (key == ',') { // < key, step back for model rotation
-		aboutB2 -= 10;
-		if (aboutB2 <= 360) aboutB2 += 360;
-		aboutB1 -= 10;
-		if (aboutB1 <= 360) aboutB1 += 360;
-		aboutB3 -= -10;
-		if (aboutB3 <= 360) aboutB3 += 360;
-		display();
+		ROTATION_ANGLE -= 10;
 	}
-	else if (key == 'q') {
-		roll(-10);
-	}
-	else if (key == 'e') {
-		roll(10);
-	}
-	else if (key == 'a') {
-		yaw(10);
-	}
-	else if (key == 'd') {
-		yaw(-10);
-	}
-	else if (key == 'w') {
-		pitch(10);
-	}
-	else if (key == 's') {
-		pitch(-10);
-	}
-	else if (key == 'h') {
-		slideAlongU(-4);
-	}
-	else if (key == 'k') {
-		slideAlongU(4);
-	}
-	else if (key == 'y') {
-		slideAlongV(-4);
-	}
-	else if (key == 'i') {
-		slideAlongV(4);
-	}
-	else if (key == 'u') {
-		slideAlongN(4);
-	}
-	else if (key == 'j') {
-		slideAlongN(-4);
-	}
-	
+	display();
 }
 
 int main(int argc, char** argv) {
 	// create window
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-	glutInitWindowPosition(100, 80);
-	glutInitWindowSize(width, height);
-	mainWindowID = glutCreateWindow("Assignment 3");
+	// glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); // for 3D map stuff
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+	glutInitWindowPosition(WIN_POSITION.x, WIN_POSITION.y);
+	glutInitWindowSize(WIN_WIDTH, WIN_HEIGHT);
+	MAIN_WINDOW_ID = glutCreateWindow("Final Project");
 
-	// set up window properties
-	glClearColor(0.9648f, 0.9531f, 0.8476f, 1.0f); // light yellow; offwhite
-	glShadeModel(GL_FLAT); // wireframe?
+	// set up (one and only) viewport
+    glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(55, (double(width)/height), 2, 100.0);
+    glOrtho(0.0, WIN_WIDTH, 0.0, WIN_HEIGHT, 1.0, -1.0); // 2D for perlin noise map
     glMatrixMode(GL_MODELVIEW);
+
+	glClearColor(0.9648f, 0.9531f, 0.8476f, 1.0f); // light yellow; offwhite
 
 	// callbacks
 	glutDisplayFunc(display);
 	glutKeyboardFunc(parseKeys);
 
 	// event processing loop
-	glEnable(GL_DEPTH_TEST);
+	// glEnable(GL_DEPTH_TEST); // for 3d stuff
 	glutMainLoop();
 	return 0; // to keep compiler happy
 }
