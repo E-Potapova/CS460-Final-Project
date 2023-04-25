@@ -32,7 +32,7 @@ const Vector WIN_POSITION(0,0,0);
 
 // Perlin noise vars
 float NOISE_DENSITY = 0.05;
-int NOISE_MAP_WIDTH = 200; // pixels
+int NOISE_MAP_WIDTH = 200;
 vector<vector<float>> NOISE_MAP;
 // a randomized list of number 0-255 (inclusive); used in original implementation
 vector<unsigned char> PERMUTATIONS = {
@@ -97,13 +97,19 @@ float noise2D(float x, float y) {
 
 	t = fade(y0_frac);
 	s = fade(x0_frac);
-
-	nx0 = grad2(PERMUTATIONS[x0_int + PERMUTATIONS[y0_int]], x0_frac, y0_frac);
-	nx1 = grad2(PERMUTATIONS[x0_int + PERMUTATIONS[y1_int]], x0_frac, y1_frac);
+	//cout << "Permutation array accesses happening w vars " << x0_int << " " << x1_int << " " << y0_int << " " << y1_int << "\n";
+	//cout << "Ok I'm gonna try doing the four permutation accesses in order line by line LOL!! 1: ";
+	nx0 = grad2(PERMUTATIONS[(x0_int + PERMUTATIONS[y0_int]) % 255], x0_frac, y0_frac);
+	//cout << nx0 << ", 2: ";
+	nx1 = grad2(PERMUTATIONS[(x0_int + PERMUTATIONS[y1_int])%255], x0_frac, y1_frac);
+	//cout << nx1 << ", 3: ";
 	n0 = lerp(t, nx0, nx1);
 
-	nx0 = grad2(PERMUTATIONS[x1_int + PERMUTATIONS[y0_int]], x1_frac, y0_frac);
-	nx1 = grad2(PERMUTATIONS[x1_int + PERMUTATIONS[y1_int]], x1_frac, y1_frac);
+
+	nx0 = grad2(PERMUTATIONS[(x1_int + PERMUTATIONS[y0_int])%255], x1_frac, y0_frac);
+	//cout << nx0 << ", 4: ";
+	nx1 = grad2(PERMUTATIONS[(x1_int + PERMUTATIONS[y1_int])%255], x1_frac, y1_frac);
+	//cout << nx1 << ", done\n";
 	n1 = lerp(t, nx0, nx1);
 
 	return (0.507f * (lerp(s, n0, n1)));
@@ -116,10 +122,12 @@ void calcNoiseMap() {
 	float v = 0.0;
 	float min = 9999;
 	float max = -9999;
+	cout << "About to. Idk. Calculate the noise values I think.\n";
 	for (int i = 0; i < NOISE_MAP_WIDTH; i++){
 		vector<float> row;
 		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
 			float noiseVal = noise2D(u,v) * 0.5 + 0.5; // normalize from 0 to 1
+			//cout << "Noise val at [" << i << ", " << j << "] is " << noiseVal << "\n";
 			row.push_back(noiseVal);
 			if (noiseVal < min)
 				min = noiseVal;
@@ -131,6 +139,7 @@ void calcNoiseMap() {
 		u += NOISE_DENSITY;
 		v = 0.0;
 	}
+	cout << "That's done.\n";
 
 	// we want to maximize the entire range of 0-1,
 	// so convert all vals from the min-max range to 0-1
@@ -139,6 +148,7 @@ void calcNoiseMap() {
 			NOISE_MAP[i][j] = (NOISE_MAP[i][j] - min)/(max - min);
 		}
 	}
+	cout << "Mapping the resulting array to be from 0 to 1 is done.\n";
 }
 
 void randomizePermutations() {
@@ -149,7 +159,9 @@ void randomizePermutations() {
 	random_device random_dev;
     mt19937 generator(random_dev());
     shuffle(PERMUTATIONS.begin(), PERMUTATIONS.end(), generator);
+	cout << "Randomize finished\n";
 	calcNoiseMap();
+	cout << "Noise map recalcd\n";
 }
 
 void drawNoiseMap() {
@@ -163,7 +175,7 @@ void drawNoiseMap() {
 	}
 }
 
-// void getHeightsFromNoiseVals(NoiseValGetPoint type, int width) {
+// void getHeightsFromNoiseVals(NoiseValGetPoint type, int width=1) {
 
 // }
 
@@ -186,7 +198,6 @@ void parseKeys(unsigned char key, int x, int y) {
 	}
 	else if (key == 'z') {
 		NOISE_DENSITY -= 0.01;
-		if (NOISE_DENSITY < 0.01) NOISE_DENSITY = 0.01;
 		calcNoiseMap();
 	}
 	else if (key == 'x') {
