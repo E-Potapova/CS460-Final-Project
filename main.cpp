@@ -32,7 +32,7 @@ const Vector WIN_POSITION(0,0,0);
 
 // Perlin noise vars
 float NOISE_DENSITY = 0.05;
-int NOISE_MAP_WIDTH = 200;
+int NOISE_MAP_WIDTH = 200; // pixels
 vector<vector<float>> NOISE_MAP;
 // a randomized list of number 0-255 (inclusive); used in original implementation
 vector<unsigned char> PERMUTATIONS = {
@@ -163,7 +163,7 @@ void drawNoiseMap() {
 	}
 }
 
-// void getHeightsFromNoiseVals(NoiseValGetPoint type, int width=1) {
+// void getHeightsFromNoiseVals(NoiseValGetPoint type, int width) {
 
 // }
 
@@ -186,6 +186,7 @@ void parseKeys(unsigned char key, int x, int y) {
 	}
 	else if (key == 'z') {
 		NOISE_DENSITY -= 0.01;
+		if (NOISE_DENSITY < 0.01) NOISE_DENSITY = 0.01;
 		calcNoiseMap();
 	}
 	else if (key == 'x') {
