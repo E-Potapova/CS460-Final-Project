@@ -5,6 +5,7 @@
 #include <GL/glut.h>
 #endif
 #include <iostream>
+#include <random> // for permutation randomization
 #include <vector>
 #include <cmath>
 using namespace std;
@@ -30,8 +31,12 @@ const unsigned int WIN_HEIGHT = 800;
 const Vector WIN_POSITION(0,0,0);
 
 // Perlin noise vars
+float NOISE_DENSITY = 0.05;
+int NOISE_MAP_WIDTH = 200;
+vector<vector<float>> NOISE_MAP;
 // a randomized list of number 0-255 (inclusive); used in original implementation
-vector<unsigned char> PERMUTATIONS = { 151,160,137,91,90,15,
+vector<unsigned char> PERMUTATIONS = {
+	151,160,137,91,90,15,
 	131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
 	190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
 	88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
@@ -65,6 +70,7 @@ float grad2(int hash, float x, float y) {
     float v = h<4 ? y : x;  // and compute the dot product with (x,y).
     return ((h&1)? -u : u) + ((h&2)? -2.0*v : 2.0*v);
 }
+
 // original 2D Perlin noise implementation
 float noise2D(float x, float y) {
 	int x0_int, y0_int, x1_int, y1_int;
@@ -93,41 +99,68 @@ float noise2D(float x, float y) {
 	nx1 = grad2(PERMUTATIONS[x1_int + PERMUTATIONS[y1_int]], x1_frac, y1_frac);
 	n1 = lerp(t, nx0, nx1);
 
-	return (0.507f * (lerp(s, n0, n1))) * 0.5 + 0.5; // '* 0.5 + 0.5' I added myself
+	return (0.507f * (lerp(s, n0, n1)));
+}
+
+void calcNoiseMap() {
+	// calculate all values and store which is the highest, lowest we encounter
+	NOISE_MAP.clear();
+	float u = 0.0;
+	float v = 0.0;
+	float min = 9999;
+	float max = -9999;
+	for (int i = 0; i < NOISE_MAP_WIDTH; i++){
+		vector<float> row;
+		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
+			float noiseVal = noise2D(u,v) * 0.5 + 0.5; // normalize from 0 to 1
+			row.push_back(noiseVal);
+			if (noiseVal < min)
+				min = noiseVal;
+			else if (noiseVal > max)
+				max = noiseVal;
+			v += NOISE_DENSITY;
+		}
+		NOISE_MAP.push_back(row);
+		u += NOISE_DENSITY;
+		v = 0.0;
+	}
+
+	// we want to maximize the entire range of 0-1,
+	// so convert all vals from the min-max range to 0-1
+	for (int i = 0; i < NOISE_MAP_WIDTH; i++){
+		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
+			NOISE_MAP[i][j] = (NOISE_MAP[i][j] - min)/(max - min);
+		}
+	}
+}
+
+void randomizePermutations() {
+	PERMUTATIONS.clear();
+	for (int i = 0; i <= 255; i++) {
+		PERMUTATIONS.push_back(i);
+	}
+	random_device random_dev;
+    mt19937 generator(random_dev());
+    shuffle(PERMUTATIONS.begin(), PERMUTATIONS.end(), generator);
+	calcNoiseMap();
+}
+
+void drawNoiseMap() {
+	for (int i = 0; i < NOISE_MAP_WIDTH; i++){
+		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
+			glColor3f(NOISE_MAP[i][j], NOISE_MAP[i][j], NOISE_MAP[i][j]);
+			glBegin(GL_POINTS);
+				glVertex2d(i, j);
+			glEnd();
+		}
+	}
 }
 
 void display() {
 	// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // for 3D map stuff
 	glClear(GL_COLOR_BUFFER_BIT);
 	
-	float u = 0.0;
-	float v = 0.0;
-	float min = 9999;
-	float max = -99999;
-	for (int x = 100; x < 300; x++){
-		for (int y = 100; y < 300; y++) {
-			float n = noise2D(u,v);
-			glColor3f(n, n, n);
-			glBegin(GL_POINTS);
-				glVertex2d(x, y);
-   			glEnd();
-			if (n < min) min = n;
-			else if (n > max) max = n;
-			v += 0.05;
-		}
-		u += 0.05;
-		v = 0.0;
-	}
-
-	glColor3f(0.01, 0.3, 0.032); // dark pink
-	glLineWidth(3);
-    glBegin(GL_LINES);
-		glVertex2f(500, 400);
-		glVertex2f(600, 200);
-	glEnd();
-
-	cout << "min: " << min << endl;
-	cout << "max: " << max << endl;
+	drawNoiseMap();
 
     glutSwapBuffers();
 }
@@ -136,6 +169,17 @@ void parseKeys(unsigned char key, int x, int y) {
 	if (key == 27) {
 			glutDestroyWindow(MAIN_WINDOW_ID);
 			exit(0);
+	}
+	else if (key == ' ') { // changes the perlin noise map
+		randomizePermutations();
+	}
+	else if (key == 'z') {
+		NOISE_DENSITY -= 0.01;
+		calcNoiseMap();
+	}
+	else if (key == 'x') {
+		NOISE_DENSITY += 0.01;
+		calcNoiseMap();
 	}
 	else if (key == '.') { // > key, step forward for model rotation
 		ROTATION_ANGLE += 10;
@@ -161,8 +205,9 @@ int main(int argc, char** argv) {
     glLoadIdentity();
     glOrtho(0.0, WIN_WIDTH, 0.0, WIN_HEIGHT, 1.0, -1.0); // 2D for perlin noise map
     glMatrixMode(GL_MODELVIEW);
-
 	glClearColor(0.9648f, 0.9531f, 0.8476f, 1.0f); // light yellow; offwhite
+
+	calcNoiseMap();
 
 	// callbacks
 	glutDisplayFunc(display);
