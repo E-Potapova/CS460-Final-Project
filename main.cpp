@@ -51,6 +51,13 @@ vector<unsigned char> PERMUTATIONS = {
 	138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180
 };
 
+// landscape vars
+// enum NoiseValGetPoint {
+// 	UpperLeft,
+// 	Midpoint,
+// 	Average
+// };
+
 // viewing vars
 double ROTATION_ANGLE = 0;
 
@@ -155,6 +162,10 @@ void drawNoiseMap() {
 		}
 	}
 }
+
+// void getHeightsFromNoiseVals(NoiseValGetPoint type, int width=1) {
+
+// }
 
 void display() {
 	// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // for 3D map stuff
