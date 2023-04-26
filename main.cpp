@@ -128,19 +128,21 @@ void calcNoiseMap() {
 	float v = 0.0;
 	float min = 9999;
 	float max = -9999;
-	for (int i = 0; i < NOISE_MAP_WIDTH; i++){
+	NOISE_MAP.resize(NOISE_MAP_WIDTH);
+	for (int i = 0; i < NOISE_MAP_WIDTH; i++) {
 		vector<float> row;
+		row.resize(NOISE_MAP_WIDTH);	
 		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
 			float noiseVal = noise2D(u,v) * 0.5 + 0.5; // normalize from 0 to 1
 			//cout << "Noise val at [" << i << ", " << j << "] is " << noiseVal << "\n";
-			row.push_back(noiseVal);
+			row[j] = (noiseVal);
 			if (noiseVal < min)
 				min = noiseVal;
 			else if (noiseVal > max)
 				max = noiseVal;
 			v += NOISE_DENSITY;
 		}
-		NOISE_MAP.push_back(row);
+		NOISE_MAP[i] = (row);
 		u += NOISE_DENSITY;
 		v = 0.0;
 	}
@@ -170,7 +172,7 @@ void drawNoiseMap() {
 		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
 			glColor3f(NOISE_MAP[i][j], NOISE_MAP[i][j], NOISE_MAP[i][j]);
 			glBegin(GL_POINTS);
-				glVertex2d(i, j);
+				glVertex2d(i, NOISE_MAP_WIDTH-j);
 			glEnd();
 		}
 	}
@@ -237,9 +239,9 @@ void drawLandscape() {
 			glBegin(GL_QUADS);
 			glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
 			glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
-			glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale) + scale);
-			glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale) + scale);
-			//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
+			glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j],  (j * scale) + scale);
+			glVertex3f((i * scale), TOWER_HEIGHTS[i][j],  (j * scale) + scale);
+			//glVertex3f((i * scale), TOWER_HEIGHTS (j * scale));
 			glEnd();
 		}
 	}
@@ -259,7 +261,7 @@ void display() {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	if (VIEW_LOCK) {
-		gluLookAt(0, 450, 0, 0, 0, 0, 1, 0, 0);
+		gluLookAt(0, 450, 0, 0, 0, 0, 0, 0, -1);
 	}
 	else {
 		gluLookAt(300, 150, 0, 0, 0, 0, 0, 1, 0);
