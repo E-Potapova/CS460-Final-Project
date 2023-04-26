@@ -33,6 +33,11 @@ const Vector WIN_POSITION(0,0,0);
 // Perlin noise vars
 float NOISE_DENSITY = 0.05;
 int NOISE_MAP_WIDTH = 200;
+int LANDSCAPE_WIDTH = 200;
+int NUMBLOCKS = 4; //4x4 grid of towers
+int MAXHEIGHT = 40; //Max height of a fully white pixel in the height map
+vector<vector<int>> TOWER_HEIGHTS;
+
 vector<vector<float>> NOISE_MAP;
 // a randomized list of number 0-255 (inclusive); used in original implementation
 vector<unsigned char> PERMUTATIONS = {
@@ -52,14 +57,15 @@ vector<unsigned char> PERMUTATIONS = {
 };
 
 // landscape vars
-// enum NoiseValGetPoint {
-// 	UpperLeft,
-// 	Midpoint,
-// 	Average
-// };
+ enum NoiseValGetPoint {
+ 	UpperLeft,
+ 	Midpoint,
+ 	Average
+ };
 
 // viewing vars
 double ROTATION_ANGLE = 0;
+bool lock = false;
 
 // 3 helper functions for Perlin noise generation
 // the "the new and improved, C(2) continuous interpolant"
@@ -122,7 +128,6 @@ void calcNoiseMap() {
 	float v = 0.0;
 	float min = 9999;
 	float max = -9999;
-	cout << "About to. Idk. Calculate the noise values I think.\n";
 	for (int i = 0; i < NOISE_MAP_WIDTH; i++){
 		vector<float> row;
 		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
@@ -139,7 +144,6 @@ void calcNoiseMap() {
 		u += NOISE_DENSITY;
 		v = 0.0;
 	}
-	cout << "That's done.\n";
 
 	// we want to maximize the entire range of 0-1,
 	// so convert all vals from the min-max range to 0-1
@@ -148,7 +152,6 @@ void calcNoiseMap() {
 			NOISE_MAP[i][j] = (NOISE_MAP[i][j] - min)/(max - min);
 		}
 	}
-	cout << "Mapping the resulting array to be from 0 to 1 is done.\n";
 }
 
 void randomizePermutations() {
@@ -159,9 +162,7 @@ void randomizePermutations() {
 	random_device random_dev;
     mt19937 generator(random_dev());
     shuffle(PERMUTATIONS.begin(), PERMUTATIONS.end(), generator);
-	cout << "Randomize finished\n";
 	calcNoiseMap();
-	cout << "Noise map recalcd\n";
 }
 
 void drawNoiseMap() {
@@ -175,15 +176,114 @@ void drawNoiseMap() {
 	}
 }
 
-// void getHeightsFromNoiseVals(NoiseValGetPoint type, int width=1) {
+void getHeightsFromNoiseVals(NoiseValGetPoint type) {
+	TOWER_HEIGHTS.clear();
+	float scale = (float)NOISE_MAP_WIDTH / (float)NUMBLOCKS;
+	for (int i = 0; i < NUMBLOCKS; i++) { //Num towers to calculate the heights of = width / numtowers
+		vector<int> empty;
+		empty.resize(NUMBLOCKS); //Empty vector that holds #blocks heights for this row
+		TOWER_HEIGHTS.push_back(empty);
+		for (int j = 0; j < NUMBLOCKS; j++) {
+			if (type == Average) {
 
-// }
+			}
+			else if (type == Midpoint) {
+
+			}
+			else if (type == UpperLeft) {
+				int index = floor(i * scale);
+				int jndex = floor(j * scale);
+				TOWER_HEIGHTS[i][j] = (NOISE_MAP[index][jndex] * MAXHEIGHT);
+			}
+		}
+	}
+}
+
+void drawPlane() {
+	float scale = (float)LANDSCAPE_WIDTH / (float)NUMBLOCKS;
+	glPushMatrix(); //dupe current matrix to hopefully not lose camera and also to not shift anything else but this plane I hope
+	glTranslatef(-(LANDSCAPE_WIDTH/2), -20, -(LANDSCAPE_WIDTH/2));
+	glColor3f(0, 0, 1);
+	//glLineWidth(2);
+	for (int i = 0; i < NUMBLOCKS ; i++) {
+		for (int j = 0; j < NUMBLOCKS; j++) {
+			glBegin(GL_LINE_STRIP);
+			glVertex3f((i * scale), 0, (j * scale));
+			glVertex3f((i * scale) + scale, 0, (j * scale));
+			glVertex3f((i * scale) + scale, 0, (j * scale) + scale);
+			glVertex3f((i * scale), 0, (j * scale) + scale);
+			glVertex3f((i * scale), 0, (j * scale));
+			glEnd();
+		}
+	}
+	glPopMatrix();
+}
+
+void drawTower(int h) {
+
+}
+
+void drawLandscape() {
+	float scale = (float)LANDSCAPE_WIDTH / (float)NUMBLOCKS;
+	glPushMatrix(); //dupe current matrix to hopefully not lose camera and also to not shift anything else but this plane I hope
+	glTranslatef(-(LANDSCAPE_WIDTH / 2), -20, -(LANDSCAPE_WIDTH / 2));
+	//glColor3f(1, 0, 0);
+	//glLineWidth(2);
+	for (int i = 0; i < NUMBLOCKS; i++) {
+		for (int j = 0; j < NUMBLOCKS; j++) {
+			//cout << "Drawing\n";
+			//glPushMatrix();
+			glColor3f((float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/ MAXHEIGHT);
+			glBegin(GL_QUADS);
+			glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
+			glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
+			glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale) + scale);
+			glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale) + scale);
+			//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
+			glEnd();
+		}
+	}
+	glPopMatrix();
+}
 
 void display() {
-	// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // for 3D map stuff
-	glClear(GL_COLOR_BUFFER_BIT);
+	  // for 3D map stuff
+	//glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST); //May need to set up culling stuff later
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	
+	gluPerspective(45.0, (GLfloat)(WIN_WIDTH) / (GLfloat)(WIN_HEIGHT), 0.1f, 500.0); //Swappin to THREE DIMENSIONS BABEY!
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	if (lock) {
+		gluLookAt(0, 450, 0, 0, 0, 0, 1, 0, 0);
+	}
+	else {
+		gluLookAt(300, 150, 0, 0, 0, 0, 0, 1, 0);
+		glRotatef(ROTATION_ANGLE, 0, 1, 0);
+	}
+	
+	calcNoiseMap();
+	getHeightsFromNoiseVals(UpperLeft);
+	drawLandscape();
+	//drawPlane();
+	drawLandscape();
+
+	// set up noisemap viewport	
+	glMatrixMode(GL_PROJECTION);
+	//glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
+
+	glLoadIdentity();
+	glOrtho(0.0, WIN_WIDTH, 0.0, WIN_HEIGHT, -1.0, 1.0); // 2D for perlin noise map
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 	
 	drawNoiseMap();
+
+
 
     glutSwapBuffers();
 }
@@ -210,6 +310,18 @@ void parseKeys(unsigned char key, int x, int y) {
 	else if (key == ',') { // < key, step back for model rotation
 		ROTATION_ANGLE -= 10;
 	}
+	else if (key == '[') { // [ and ] will increase and decrease the scaling of the height map, increasing and decreasing the number of towers per row
+		NUMBLOCKS /=2;
+		if (NUMBLOCKS < 4) { NUMBLOCKS = 4; }
+	}
+	else if (key == ']') { // [ and ] will increase and decrease the scaling of the height map, increasing and decreasing the number of towers per row
+		NUMBLOCKS *= 2;
+		if (NUMBLOCKS > 200) { NUMBLOCKS = 200; }
+	}
+	else if (key == 'l') {
+		lock = !lock;
+	}
+
 	display();
 }
 
@@ -222,15 +334,7 @@ int main(int argc, char** argv) {
 	glutInitWindowSize(WIN_WIDTH, WIN_HEIGHT);
 	MAIN_WINDOW_ID = glutCreateWindow("Final Project");
 
-	// set up (one and only) viewport
-    glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
-	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0.0, WIN_WIDTH, 0.0, WIN_HEIGHT, 1.0, -1.0); // 2D for perlin noise map
-    glMatrixMode(GL_MODELVIEW);
 	glClearColor(0.9648f, 0.9531f, 0.8476f, 1.0f); // light yellow; offwhite
-
-	calcNoiseMap();
 
 	// callbacks
 	glutDisplayFunc(display);

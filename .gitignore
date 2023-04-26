@@ -12,6 +12,7 @@
 fional.*
 freeglut*
 .vscode
+perlinNoise
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
