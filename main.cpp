@@ -65,7 +65,7 @@ vector<unsigned char> PERMUTATIONS = {
 
 // viewing vars
 double ROTATION_ANGLE = 0;
-bool lock = false;
+bool VIEW_LOCK = false;
 
 // 3 helper functions for Perlin noise generation
 // the "the new and improved, C(2) continuous interpolant"
@@ -258,7 +258,7 @@ void display() {
 	gluPerspective(45.0, (GLfloat)(WIN_WIDTH) / (GLfloat)(WIN_HEIGHT), 0.1f, 500.0); //Swappin to THREE DIMENSIONS BABEY!
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	if (lock) {
+	if (VIEW_LOCK) {
 		gluLookAt(0, 450, 0, 0, 0, 0, 1, 0, 0);
 	}
 	else {
@@ -319,7 +319,7 @@ void parseKeys(unsigned char key, int x, int y) {
 		if (NUMBLOCKS > 200) { NUMBLOCKS = 200; }
 	}
 	else if (key == 'l') {
-		lock = !lock;
+		VIEW_LOCK = !VIEW_LOCK;
 	}
 
 	display();
