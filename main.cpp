@@ -33,10 +33,7 @@ const Vector WIN_POSITION(0,0,0);
 // Perlin noise vars
 float NOISE_DENSITY = 0.05;
 int NOISE_MAP_WIDTH = 200;
-int LANDSCAPE_WIDTH = 200;
-int NUMBLOCKS = 4; //4x4 grid of towers
-int MAXHEIGHT = 40; //Max height of a fully white pixel in the height map
-vector<vector<int>> TOWER_HEIGHTS;
+
 
 vector<vector<float>> NOISE_MAP;
 // a randomized list of number 0-255 (inclusive); used in original implementation
@@ -62,7 +59,17 @@ vector<unsigned char> PERMUTATIONS = {
  	Midpoint,
  	Average
  };
-
+ enum ColorStyle {
+	 Noire,
+	 Gradient,
+	 Minecraft
+ };
+ int LANDSCAPE_WIDTH = 200;
+ int NUMBLOCKS = 4; //4x4 grid of towers
+ int MAXHEIGHT = 40; //Max height of a fully white pixel in the height map
+ vector<vector<int>> TOWER_HEIGHTS;
+ NoiseValGetPoint method = UpperLeft;
+ ColorStyle style = Noire;
 // viewing vars
 double ROTATION_ANGLE = 0;
 bool VIEW_LOCK = false;
@@ -147,13 +154,18 @@ void calcNoiseMap() {
 		v = 0.0;
 	}
 
+	//Commenting this out because forcing a max value actually only designates one pixel to be guaranteed to be a max and so 
+	// in gradient drawing mode it causes a single stray red pixel to be drawn. Might come back to this and figure out how to
+	// smoothly transition from perfect red -> perfect blue (I suspect it'll involve having a ceiling where blue won't be able to appear above 0.95 or smth)
+	// 
+	// 
 	// we want to maximize the entire range of 0-1,
 	// so convert all vals from the min-max range to 0-1
-	for (int i = 0; i < NOISE_MAP_WIDTH; i++){
+	/*/for (int i = 0; i < NOISE_MAP_WIDTH; i++) {
 		for (int j = 0; j < NOISE_MAP_WIDTH; j++) {
 			NOISE_MAP[i][j] = (NOISE_MAP[i][j] - min)/(max - min);
 		}
-	}
+	}*/
 }
 
 void randomizePermutations() {
@@ -187,10 +199,20 @@ void getHeightsFromNoiseVals(NoiseValGetPoint type) {
 		TOWER_HEIGHTS.push_back(empty);
 		for (int j = 0; j < NUMBLOCKS; j++) {
 			if (type == Average) {
-
+				int count = 0;
+				float value = 0;
+				for (int ii = i * scale; ii < i * scale + scale; ii++) {
+					for (int jj = j * scale; jj < j * scale + scale; jj++) {
+						value += NOISE_MAP[ii][jj];
+						count++;
+					}
+				}
+				TOWER_HEIGHTS[i][j] = ((float)value / (float)count) * MAXHEIGHT;
 			}
 			else if (type == Midpoint) {
-
+				int index = floor(i * scale + (scale / 2));
+				int jndex = floor(j * scale + (scale / 2));
+				TOWER_HEIGHTS[i][j] = (NOISE_MAP[index][jndex] * MAXHEIGHT);
 			}
 			else if (type == UpperLeft) {
 				int index = floor(i * scale);
@@ -221,8 +243,49 @@ void drawPlane() {
 	glPopMatrix();
 }
 
-void drawTower(int h) {
+void drawTower(int h, int i, int j, float scale) {
 
+	if (style == Noire) {
+		glColor3f((float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/MAXHEIGHT);
+	}
+	else if (style == Gradient) {
+		glColor3f((float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, 0.1, 1-(float)(TOWER_HEIGHTS[i][j] / MAXHEIGHT));
+	}
+	else if (style == Minecraft) {
+
+	}
+	glBegin(GL_QUADS);
+	//Top face
+	glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
+	glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
+	glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j],  (j * scale) + scale);
+	glVertex3f((i * scale), TOWER_HEIGHTS[i][j],  (j * scale) + scale);
+	// Right side
+	glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
+	glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
+	glVertex3f((i * scale) + scale, 0, (j * scale));
+	glVertex3f((i * scale), 0, (j * scale));
+
+	//Left Side
+	glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j],  (j * scale) + scale);
+	glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale) + scale);
+	glVertex3f((i * scale), 0, (j * scale) + scale);
+	glVertex3f((i * scale) + scale, 0, (j * scale) + scale);
+
+	//Front
+	glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
+	glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale) + scale);
+	glVertex3f((i * scale) + scale, 0, (j * scale) + scale);
+	glVertex3f((i * scale) + scale, 0, (j * scale));
+
+	//Back
+	glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
+	glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale) + scale);
+	glVertex3f((i * scale), 0, (j * scale) + scale);
+	glVertex3f((i * scale), 0, (j * scale));
+
+	//glVertex3f((i * scale), TOWER_HEIGHTS (j * scale));
+	glEnd();
 }
 
 void drawLandscape() {
@@ -235,14 +298,7 @@ void drawLandscape() {
 		for (int j = 0; j < NUMBLOCKS; j++) {
 			//cout << "Drawing\n";
 			//glPushMatrix();
-			glColor3f((float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/ MAXHEIGHT);
-			glBegin(GL_QUADS);
-			glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
-			glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
-			glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j],  (j * scale) + scale);
-			glVertex3f((i * scale), TOWER_HEIGHTS[i][j],  (j * scale) + scale);
-			//glVertex3f((i * scale), TOWER_HEIGHTS (j * scale));
-			glEnd();
+			drawTower(TOWER_HEIGHTS[i][j], i, j, scale);
 		}
 	}
 	glPopMatrix();
@@ -269,7 +325,7 @@ void display() {
 	}
 	
 	calcNoiseMap();
-	getHeightsFromNoiseVals(UpperLeft);
+	getHeightsFromNoiseVals(method);
 	drawLandscape();
 	//drawPlane();
 	drawLandscape();
@@ -320,10 +376,43 @@ void parseKeys(unsigned char key, int x, int y) {
 		NUMBLOCKS *= 2;
 		if (NUMBLOCKS > 200) { NUMBLOCKS = 200; }
 	}
+	else if (key == '=') {
+		MAXHEIGHT += 20;
+		if (MAXHEIGHT > 200) { MAXHEIGHT = 200; }
+	}
+	else if (key == '-') {
+		MAXHEIGHT -= 20;
+		if (MAXHEIGHT < 20) {
+			MAXHEIGHT = 20;
+		}
+	}
 	else if (key == 'l') {
 		VIEW_LOCK = !VIEW_LOCK;
 	}
 
+	display();
+}
+
+void dummyfunc(int a){}
+void parseMouse(int s) {
+	if (s == 0) {
+		method = UpperLeft;
+	}
+	else if (s == 1) {
+		method = Midpoint;
+	}
+	else if (s == 2) {
+		method = Average;
+	}
+	else if (s == 3) {
+		style = Noire;
+	}
+	else if (s == 4) {
+		style = Gradient;
+	}
+	else if (s == 5) {
+		style = Minecraft;
+	}
 	display();
 }
 
@@ -341,6 +430,19 @@ int main(int argc, char** argv) {
 	// callbacks
 	glutDisplayFunc(display);
 	glutKeyboardFunc(parseKeys);
+	int hgm = glutCreateMenu(parseMouse);
+	glutAddMenuEntry("Upper Left", 0);
+	glutAddMenuEntry("Center", 1);
+	glutAddMenuEntry("Average", 2);
+	int tc = glutCreateMenu(parseMouse);
+	glutAddMenuEntry("Noire", 3);
+	glutAddMenuEntry("Solid red-blue", 4);
+	glutAddMenuEntry("Minecraft", 5);
+	glutCreateMenu(dummyfunc);
+	glutAddSubMenu("Height Generation method", hgm);
+	glutAddSubMenu("Color scheme", tc);
+	glutAttachMenu(GLUT_LEFT_BUTTON);
+
 
 	// event processing loop
 	// glEnable(GL_DEPTH_TEST); // for 3d stuff
