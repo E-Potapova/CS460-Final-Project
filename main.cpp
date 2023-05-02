@@ -60,16 +60,18 @@ vector<unsigned char> PERMUTATIONS = {
  	Average
  };
  enum ColorStyle {
-	 Noir,
-	 Gradient,
-	 Minecraft
+	Noir,
+	Gradient,
+	Minecraft
  };
  int LANDSCAPE_WIDTH = 200;
  int NUMBLOCKS = 4; //4x4 grid of towers
- int MAXHEIGHT = 40; //Max height of a fully white pixel in the height map
+ int MAXHEIGHT = 40; // Max height of a fully white pixel in the height map
  vector<vector<float>> TOWER_HEIGHTS;
  NoiseValGetPoint GENERATION_METHOD = UpperLeft;
+ bool DRAW_VOXELS = false;
  ColorStyle COLOR_STYLE = Noir;
+ bool DRAW_OUTLINE = false;
 // viewing vars
 double ROTATION_ANGLE = 0;
 bool VIEW_LOCK = false;
@@ -190,7 +192,7 @@ void drawNoiseMap() {
 	}
 }
 
-void getHeightsFromNoiseVals(NoiseValGetPoint type) {
+void getHeightsFromNoiseVals() {
 	TOWER_HEIGHTS.clear();
 	float noiseBlockWidth = (float)NOISE_MAP_WIDTH / (float)NUMBLOCKS;
 	for (int i = 0; i < NUMBLOCKS; i++) { //Num towers to calculate the heights of = width / numtowers
@@ -198,7 +200,7 @@ void getHeightsFromNoiseVals(NoiseValGetPoint type) {
 		empty.resize(NUMBLOCKS); //Empty vector that holds #blocks heights for this row
 		TOWER_HEIGHTS.push_back(empty);
 		for (int j = 0; j < NUMBLOCKS; j++) {
-			if (type == Average) {
+			if (GENERATION_METHOD == Average) {
 				int count = 0;
 				float value = 0;
 				for (int ii = i * noiseBlockWidth; ii < i * noiseBlockWidth + noiseBlockWidth; ii++) {
@@ -209,12 +211,12 @@ void getHeightsFromNoiseVals(NoiseValGetPoint type) {
 				}
 				TOWER_HEIGHTS[i][j] = ((float)value / (float)count) * MAXHEIGHT;
 			}
-			else if (type == Midpoint) {
+			else if (GENERATION_METHOD == Midpoint) {
 				int index = floor(i * noiseBlockWidth + (noiseBlockWidth / 2));
 				int jndex = floor(j * noiseBlockWidth + (noiseBlockWidth / 2));
 				TOWER_HEIGHTS[i][j] = (NOISE_MAP[index][jndex] * MAXHEIGHT);
 			}
-			else if (type == UpperLeft) {
+			else if (GENERATION_METHOD == UpperLeft) {
 				int index = floor(i * noiseBlockWidth);
 				int jndex = floor(j * noiseBlockWidth);
 				TOWER_HEIGHTS[i][j] = (NOISE_MAP[index][jndex] * MAXHEIGHT);
@@ -223,103 +225,229 @@ void getHeightsFromNoiseVals(NoiseValGetPoint type) {
 	}
 }
 
-void drawTower(int h, int i, int j, float towerWidth) {
+void drawTower(int i, int j, float width) {
 	if (COLOR_STYLE == Noir) {
-		glColor3f((float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, (float)TOWER_HEIGHTS[i][j]/MAXHEIGHT);
+		glColor3f(TOWER_HEIGHTS[i][j]/MAXHEIGHT, TOWER_HEIGHTS[i][j]/MAXHEIGHT, TOWER_HEIGHTS[i][j]/MAXHEIGHT);
 	}
 	else if (COLOR_STYLE == Gradient) {
-		glColor3f(1 - (float)TOWER_HEIGHTS[i][j]/MAXHEIGHT, 0, (float)(TOWER_HEIGHTS[i][j] / MAXHEIGHT));
+		glColor3f(1 - TOWER_HEIGHTS[i][j]/MAXHEIGHT, 0, TOWER_HEIGHTS[i][j]/MAXHEIGHT);
 	}
 	else if (COLOR_STYLE == Minecraft) {
 		//Upper 15% surface blocks = white for snow, 35% surface blocks = green, non surface = brown for dirt n grass, 40% = shades of gray for stone, lowest layer is
 		//shades of red for magma maybe. Set random variable to draw in ore sometimes bc that would be cuuuuute
 	}
+
 	glBegin(GL_QUADS);
 	//Top face
-	glVertex3f((i * towerWidth), TOWER_HEIGHTS[i][j], (j * towerWidth));
-	glVertex3f((i * towerWidth) + towerWidth, TOWER_HEIGHTS[i][j], (j * towerWidth));
-	glVertex3f((i * towerWidth) + towerWidth, TOWER_HEIGHTS[i][j],  (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth), TOWER_HEIGHTS[i][j],  (j * towerWidth) + towerWidth);
+	glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width));
+	glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width));
+	glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j],  (j * width) + width);
+	glVertex3f((i * width), TOWER_HEIGHTS[i][j],  (j * width) + width);
 	// Right side
-	glVertex3f((i * towerWidth), TOWER_HEIGHTS[i][j], (j * towerWidth));
-	glVertex3f((i * towerWidth) + towerWidth, TOWER_HEIGHTS[i][j], (j * towerWidth));
-	glVertex3f((i * towerWidth) + towerWidth, 0, (j * towerWidth));
-	glVertex3f((i * towerWidth), 0, (j * towerWidth));
-
+	glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width));
+	glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width));
+	glVertex3f((i * width) + width, 0, (j * width));
+	glVertex3f((i * width), 0, (j * width));
 	//Left Side
-	glVertex3f((i * towerWidth) + towerWidth, TOWER_HEIGHTS[i][j],  (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth), TOWER_HEIGHTS[i][j], (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth), 0, (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth) + towerWidth, 0, (j * towerWidth) + towerWidth);
-
+	glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j],  (j * width) + width);
+	glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width) + width);
+	glVertex3f((i * width), 0, (j * width) + width);
+	glVertex3f((i * width) + width, 0, (j * width) + width);
 	//Front
-	glVertex3f((i * towerWidth) + towerWidth, TOWER_HEIGHTS[i][j], (j * towerWidth));
-	glVertex3f((i * towerWidth) + towerWidth, TOWER_HEIGHTS[i][j], (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth) + towerWidth, 0, (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth) + towerWidth, 0, (j * towerWidth));
-
+	glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width));
+	glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width) + width);
+	glVertex3f((i * width) + width, 0, (j * width) + width);
+	glVertex3f((i * width) + width, 0, (j * width));
 	//Back
-	glVertex3f((i * towerWidth), TOWER_HEIGHTS[i][j], (j * towerWidth));
-	glVertex3f((i * towerWidth), TOWER_HEIGHTS[i][j], (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth), 0, (j * towerWidth) + towerWidth);
-	glVertex3f((i * towerWidth), 0, (j * towerWidth));
-
+	glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width));
+	glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width) + width);
+	glVertex3f((i * width), 0, (j * width) + width);
+	glVertex3f((i * width), 0, (j * width));
 	//glVertex3f((i * scale), TOWER_HEIGHTS (j * scale));
 	glEnd();
 
-		////Outline
-		//glLineWidth(1.5);
-		//glColor4f(.2, .2, .2, .7);
+	if (DRAW_OUTLINE) {
+		//Outline
+		glLineWidth(1.5);
+		glColor4f(.2, .2, .2, .7);
 
-		//glBegin(GL_LINE_STRIP);
-		////Top
-		//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
-		//glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
-		//glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale) + scale);
-		//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale) + scale);
-		//glEnd();
-		//glBegin(GL_LINE_STRIP);
-		////Front
-		//glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
-		//glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale) + scale);
-		//glVertex3f((i * scale) + scale, 0, (j * scale) + scale);
-		//glVertex3f((i * scale) + scale, 0, (j * scale));
-		//glEnd();
-		//glBegin(GL_LINE_STRIP);
-		//// Right side
-		//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
-		//glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale));
-		//glVertex3f((i * scale) + scale, 0, (j * scale));
-		//glVertex3f((i * scale), 0, (j * scale));
-		//glEnd();
-		//glBegin(GL_LINE_STRIP);
-		////Back
-		//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale));
-		//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale) + scale);
-		//glVertex3f((i * scale), 0, (j * scale) + scale);
-		//glVertex3f((i * scale), 0, (j * scale));
-		//glEnd();
-		//glBegin(GL_LINE_STRIP);
-		////Left Side
-		//glVertex3f((i * scale) + scale, TOWER_HEIGHTS[i][j], (j * scale) + scale);
-		//glVertex3f((i * scale), TOWER_HEIGHTS[i][j], (j * scale) + scale);
-		//glVertex3f((i * scale), 0, (j * scale) + scale);
-		//glVertex3f((i * scale) + scale, 0, (j * scale) + scale);
+		glBegin(GL_LINE_LOOP);
+		//Top
+		glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width));
+		glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width));
+		glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width) + width);
+		glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width) + width);
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		//Front
+		glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width));
+		glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width) + width);
+		glVertex3f((i * width) + width, 0, (j * width) + width);
+		glVertex3f((i * width) + width, 0, (j * width));
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		// Right side
+		glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width));
+		glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width));
+		glVertex3f((i * width) + width, 0, (j * width));
+		glVertex3f((i * width), 0, (j * width));
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		//Back
+		glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width));
+		glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width) + width);
+		glVertex3f((i * width), 0, (j * width) + width);
+		glVertex3f((i * width), 0, (j * width));
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		//Left Side
+		glVertex3f((i * width) + width, TOWER_HEIGHTS[i][j], (j * width) + width);
+		glVertex3f((i * width), TOWER_HEIGHTS[i][j], (j * width) + width);
+		glVertex3f((i * width), 0, (j * width) + width);
+		glVertex3f((i * width) + width, 0, (j * width) + width);
 
-		//glEnd();
+		glEnd();
+	}
+}
+
+void drawCube(float x, float y, float z, float width) {
+	glBegin(GL_QUADS);
+	// top
+	glVertex3f(x, y+width, z);
+	glVertex3f(x+width, y+width, z);
+	glVertex3f(x+width, y+width, z+width);
+	glVertex3f(x, y+width, z+width);
+	// right
+	glVertex3f(x, y+width, z);
+	glVertex3f(x+width, y+width, z);
+	glVertex3f(x+width, y, z);
+	glVertex3f(x, y, z);
+	// left
+	glVertex3f(x+width, y+width,  z+width);
+	glVertex3f(x, y+width, z+width);
+	glVertex3f(x, y, z+width);
+	glVertex3f(x+width, y, z+width);
+	// front
+	glVertex3f(x+width, y+width, z);
+	glVertex3f(x+width, y+width, z+width);
+	glVertex3f(x+width, y, z+width);
+	glVertex3f(x+width, y, z);
+	// back
+	glVertex3f(x, y+width, z);
+	glVertex3f(x, y+width, z+width);
+	glVertex3f(x, y, z+width);
+	glVertex3f(x, y, z);
+	glEnd();
+
+	if (DRAW_OUTLINE) {
+		glLineWidth(1.5);
+		glColor4f(.2, .2, .2, .7);
+		// top
+		glBegin(GL_LINE_LOOP);
+		glVertex3f(x, y+width, z);
+		glVertex3f(x+width, y+width, z);
+		glVertex3f(x+width, y+width, z+width);
+		glVertex3f(x, y+width, z+width);
+		glEnd();
+		// right
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(x+width, y+width, z);
+		glVertex3f(x+width, y, z);
+		glVertex3f(x, y, z);
+		glEnd();
+		// left
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(x, y+width, z+width);
+		glVertex3f(x, y, z+width);
+		glVertex3f(x+width, y, z+width);
+		glEnd();
+		// front
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(x+width, y+width, z+width);
+		glVertex3f(x+width, y, z+width);
+		glVertex3f(x+width, y, z);
+		glEnd();
+		// back
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(x, y, z+width);
+		glVertex3f(x, y, z);
+		glVertex3f(x, y+width, z);
+		glEnd();
+	}
+}
+
+void drawVoxelTower(int i, int j, float width, bool spawnSurprise) {
+	float realHeight = TOWER_HEIGHTS[i][j];
+	float stackHeight = 0.0f;
+	while (stackHeight < realHeight) {
+		// round down if in lower half of multiple
+		// if ((realHeight - stackHeight) < (towerWidth/2)) {
+		// 	break;
+		// }
+		// get color
+		if (COLOR_STYLE == Noir) {
+			glColor3f(stackHeight/MAXHEIGHT, stackHeight/MAXHEIGHT, stackHeight/MAXHEIGHT);
+		}
+		else if (COLOR_STYLE == Gradient) {
+			glColor3f(1 - stackHeight/MAXHEIGHT, 0, stackHeight/MAXHEIGHT);
+		}
+		else if (COLOR_STYLE == Minecraft) {
+			if ((stackHeight + width) > realHeight) {
+				// color for top layer of all cubes
+				glColor3f(0.3058f, 0.5686f, 0.2392f); // grass green
+			}
+			// bottom third of tower is stone, rounded down
+			else if (stackHeight < (0.333 * realHeight)) {
+				glColor3f(0.4549f, 0.4549f, 0.4549f); // stone grey
+			}
+			else {
+				glColor3f(0.5254f, 0.3529f, 0.2235f); // dirt brown
+			}
+		}
+		drawCube(i*width, stackHeight, j*width, width);
+		stackHeight += width;
+	}
+	if (spawnSurprise) {
+		glColor3f(0.3058f, 0.2039f, 0.1803f); // dark brown
+		drawCube(i*width, stackHeight, j*width, width);
+	}
 }
 
 void drawLandscape() {
 	float towerWidth = (float)LANDSCAPE_WIDTH / (float)NUMBLOCKS;
-	glPushMatrix(); //dupe current matrix to hopefully not lose camera and also to not shift anything else but this plane I hope
+	// 10% chance to spawn horse on top of a random tower
+	bool spawnHorse = false;
+	int horse_i = -1;
+	int horse_j = -1;
+	if (COLOR_STYLE == Minecraft) {
+		random_device random_dev;
+		mt19937 generator(random_dev());
+		uniform_int_distribution<int> uni(0,100);
+		if (uni(generator) <= 10) {
+			spawnHorse = true;
+			uniform_int_distribution<int> horse(0, NUMBLOCKS-1);
+			horse_i = horse(generator);
+			horse_j = horse(generator);
+		}
+	}
+	glPushMatrix();
 	glTranslatef(-(LANDSCAPE_WIDTH / 2), -20, -(LANDSCAPE_WIDTH / 2));
-	//glColor3f(1, 0, 0);
-	//glLineWidth(2);
 	for (int i = 0; i < NUMBLOCKS; i++) {
 		for (int j = 0; j < NUMBLOCKS; j++) {
-			//cout << "Drawing\n";
-			//glPushMatrix();
-			drawTower(TOWER_HEIGHTS[i][j], i, j, towerWidth);
+			if (DRAW_VOXELS) {
+				// draws a stack of cubes
+				if ((COLOR_STYLE == Minecraft) && spawnHorse && (i == horse_i) && (j == horse_j)) {
+					drawVoxelTower(i, j, towerWidth, true);
+					spawnHorse = false;
+				}
+				else {
+					drawVoxelTower(i, j, towerWidth, false);
+				}
+			}
+			else {
+				// draws rectangular prism
+				drawTower(i, j, towerWidth);
+			}
 		}
 	}
 	glPopMatrix();
@@ -329,7 +457,6 @@ void display() {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // opacity
 	glEnable(GL_BLEND);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST); //May need to set up culling stuff later
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -364,18 +491,18 @@ void parseKeys(unsigned char key, int x, int y) {
 	}
 	else if (key == ' ') { // changes the perlin noise map
 		randomizePermutations();
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
 	else if (key == 'z') {
 		NOISE_DENSITY -= 0.01;
 		if (NOISE_DENSITY < 0.01) NOISE_DENSITY = 0.01;
 		calcNoiseMap();
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
 	else if (key == 'x') {
 		NOISE_DENSITY += 0.01;
 		calcNoiseMap();
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
 	else if (key == '.') { // > key, step forward for model rotation
 		ROTATION_ANGLE += 10;
@@ -386,53 +513,62 @@ void parseKeys(unsigned char key, int x, int y) {
 	else if (key == '[') { // [ and ] will increase and decrease the scaling of the height map, increasing and decreasing the number of towers per row
 		NUMBLOCKS /=2;
 		if (NUMBLOCKS < 4) { NUMBLOCKS = 4; }
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
 	else if (key == ']') { // [ and ] will increase and decrease the scaling of the height map, increasing and decreasing the number of towers per row
 		NUMBLOCKS *= 2;
 		if (NUMBLOCKS > 200) { NUMBLOCKS = 200; }
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
 	else if (key == '=') {
 		MAXHEIGHT += 20;
 		if (MAXHEIGHT > 200) { MAXHEIGHT = 200; }
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
 	else if (key == '-') {
 		MAXHEIGHT -= 20;
 		if (MAXHEIGHT < 20) {
 			MAXHEIGHT = 20;
 		}
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
 	else if (key == 'l') {
 		VIEW_LOCK = !VIEW_LOCK;
+	}
+	else if (key == 'o') {
+		DRAW_OUTLINE = !DRAW_OUTLINE;
 	}
 
 	display();
 }
 
-void parseMouse(int s) {
-	if (s == 0) {
+void parseMenu(int option) {
+	if (option == 0) {
 		GENERATION_METHOD = UpperLeft;
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
-	else if (s == 1) {
+	else if (option == 1) {
 		GENERATION_METHOD = Midpoint;
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
-	else if (s == 2) {
+	else if (option == 2) {
 		GENERATION_METHOD = Average;
-		getHeightsFromNoiseVals(GENERATION_METHOD);
+		getHeightsFromNoiseVals();
 	}
-	else if (s == 3) {
+	else if (option == 3) {
 		COLOR_STYLE = Noir;
 	}
-	else if (s == 4) {
+	else if (option == 4) {
 		COLOR_STYLE = Gradient;
 	}
-	else if (s == 5) {
+	else if (option == 5) {
 		COLOR_STYLE = Minecraft;
+	}
+	else if (option == 6) {
+		DRAW_VOXELS = false;
+	}
+	else if (option == 7) {
+		DRAW_VOXELS = true;
 	}
 	display();
 }
@@ -440,32 +576,39 @@ void parseMouse(int s) {
 int main(int argc, char** argv) {
 	// create window
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowPosition(WIN_POSITION.x, WIN_POSITION.y);
 	glutInitWindowSize(WIN_WIDTH, WIN_HEIGHT);
 	MAIN_WINDOW_ID = glutCreateWindow("Final Project");
+	glEnable(GL_DEPTH_TEST);
 
 	glClearColor(0.9648f, 0.9531f, 0.8476f, 1.0f); // light yellow; offwhite
 
 	// callbacks
 	glutDisplayFunc(display);
 	glutKeyboardFunc(parseKeys);
-	int hgm = glutCreateMenu(parseMouse);
+
+	// menu
+	int hgm = glutCreateMenu(parseMenu);
 	glutAddMenuEntry("Upper Left", 0);
 	glutAddMenuEntry("Center", 1);
 	glutAddMenuEntry("Average", 2);
-	int tc = glutCreateMenu(parseMouse);
+	int tc = glutCreateMenu(parseMenu);
 	glutAddMenuEntry("Noir", 3);
 	glutAddMenuEntry("Red-Blue Gradient", 4);
 	glutAddMenuEntry("Minecraft", 5);
-	glutCreateMenu(parseMouse);
+	int towerMenu = glutCreateMenu(parseMenu);
+	glutAddMenuEntry("Rectangular Prisms", 6);
+	glutAddMenuEntry("Voxel Cubes", 7);
+	glutCreateMenu(parseMenu);
+	glutAddSubMenu("Tower Style", towerMenu);
 	glutAddSubMenu("Height Generation Style", hgm);
 	glutAddSubMenu("Color Scheme", tc);
 	glutAttachMenu(GLUT_LEFT_BUTTON);
 
 	// initialize defaults
 	calcNoiseMap();
-	getHeightsFromNoiseVals(GENERATION_METHOD);
+	getHeightsFromNoiseVals();
 
 	// event processing loop
 	glutMainLoop();
